@@ -20,18 +20,22 @@ import (
 )
 
 type Block struct {
-	Index     int
-	Timestamp string
-	BPM       int
-	Hash      string
-	PrevHash  string
+	Index      int
+	Timestamp  string
+	BPM        int
+	Hash       string
+	PrevHash   string
+	Difficulty int
+	Nonce      string
 }
+
+var Blockchain []Block
 
 type Message struct {
 	BPM int
 }
 
-var Blockchain []Block
+var mutex = &sync.Mutex{}
 
 func calculateHash(block Block) string {
 	record := string(block.Index) + block.Timestamp + string(block.BPM) + block.PrevHash
