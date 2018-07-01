@@ -39,6 +39,25 @@ type Message struct {
 
 var mutex = &sync.Mutex{}
 
+func main() {
+	err := godotenv.Load()
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	go func() {
+		t := time.Now()
+		genesisBlock := Block{}
+		genesisBlock = Block{0, t.String(), 0, calculateHash(genesisBlock), "", difficulty, ""}
+		spew.Dump(genesisBlock)
+
+		mutex.Lock()
+		Blockchain = append(Blockchain, genesisBlock)
+		mutex.Unlock()
+	}()
+	log.Fatal(run())
+}
+
 //Web server
 func run() error {
 	mux := makeMuxRouter()
@@ -59,6 +78,7 @@ func run() error {
 	return nil
 }
 
+// handlers
 func makeMuxRouter() http.Handler {
 	muxRouter := mux.NewRouter()
 	muxRouter.HandleFunc("/", handleGetBlockchain).Methods("GET")
@@ -66,6 +86,7 @@ func makeMuxRouter() http.Handler {
 	return muxRouter
 }
 
+// write blockchain with http request
 func handleGetBlockchain(w http.ResponseWriter, r *http.Request) {
 	bytes, err := json.MarshalIndent(Blockchain, "", " ")
 	if err != nil {
@@ -75,6 +96,7 @@ func handleGetBlockchain(w http.ResponseWriter, r *http.Request) {
 	io.WriteString(w, string(bytes))
 }
 
+// JSON payload
 func respondWithJSON(w http.ResponseWriter, r *http.Request, code int, payload interface{}) {
 	w.Header().Set("Content-Type", "application/json")
 	response, err := json.MarshalIndent(payload, "", "  ")
@@ -168,29 +190,4 @@ func isBlockValid(newBlock, oldBlock Block) bool {
 	}
 
 	return true
-}
-
-func replaceChain(newBlocks []Block) {
-	if len(newBlocks) > len(Blockchain) {
-		Blockchain = newBlocks
-	}
-}
-
-func main() {
-	err := godotenv.Load()
-	if err != nil {
-		log.Fatal(err)
-	}
-
-	go func() {
-		t := time.Now()
-		genesisBlock := Block{}
-		genesisBlock = Block{0, t.String(), 0, calculateHash(genesisBlock), "", difficulty, ""}
-		spew.Dump(genesisBlock)
-
-		mutex.Lock()
-		Blockchain = append(Blockchain, genesisBlock)
-		mutex.Unlock()
-	}()
-	log.Fatal(run())
 }
