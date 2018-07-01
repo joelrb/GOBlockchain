@@ -21,6 +21,7 @@ import (
 
 const difficulty = 1
 
+// Block data model
 type Block struct {
 	Index      int
 	Timestamp  string
@@ -31,8 +32,10 @@ type Block struct {
 	Nonce      string
 }
 
+// Blockchain
 var Blockchain []Block
 
+// Message received
 type Message struct {
 	BPM int
 }
