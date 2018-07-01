@@ -19,6 +19,8 @@ import (
 	"github.com/joho/godotenv"
 )
 
+const difficulty = 1
+
 type Block struct {
 	Index      int
 	Timestamp  string
@@ -134,11 +136,11 @@ func generateBlock(oldBlock Block, BPM int) Block {
 	newBlock.BPM = BPM
 	newBlock.PrevHash = oldBlock.Hash
 	newBlock.Difficulty = difficulty
-	
-	for i := 0; i++ {
-		hex := fmt.Sprint("%x", i)
+
+	for i := 0; ; i++ {
+		hex := fmt.Sprintf("%x", i)
 		newBlock.Nonce = hex
-		if !isHashValid(calculateHash(newBlock), newBlock.Difficulty){
+		if !isHashValid(calculateHash(newBlock), newBlock.Difficulty) {
 			fmt.Println(calculateHash(newBlock), " do more work!")
 			time.Sleep(time.Second)
 			continue
@@ -174,81 +176,21 @@ func replaceChain(newBlocks []Block) {
 	}
 }
 
-var bcServer chan []Block
-
 func main() {
 	err := godotenv.Load()
 	if err != nil {
 		log.Fatal(err)
 	}
 
-	bcServer = make(chan []Block)
-
-	// create genesis block
-	t := time.Now()
-	genesisBlock := Block{0, t.String(), 0, "", ""}
-	spew.Dump(genesisBlock)
-	Blockchain = append(Blockchain, genesisBlock)
-
-	// start TCP and serve TCP server
-	server, err := net.Listen("tcp", ":"+os.Getenv("ADDR"))
-	if err != nil {
-		log.Fatal(err)
-	}
-	defer server.Close()
-
-	for {
-		conn, err := server.Accept()
-		if err != nil {
-			log.Fatal(err)
-		}
-		go handleConn(conn)
-	}
-}
-
-func handleConn(conn net.Conn) {
-	defer conn.Close()
-
-	io.WriteString(conn, "Enter a new BPM:")
-
-	scanner := bufio.NewScanner(conn)
-
-	// take in BPM from stdin and add it to blockchain after conducting necessary validation
 	go func() {
-		for scanner.Scan() {
-			bpm, err := strconv.Atoi(scanner.Text())
-			if err != nil {
-				log.Printf("%v not a number: %v", scanner.Text(), err)
-				continue
-			}
-			newBlock, err := generateBlock(Blockchain[len(Blockchain)-1], bpm)
-			if err != nil {
-				log.Println(err)
-				continue
-			}
-			if isBlockValid(newBlock, Blockchain[len(Blockchain)-1]) {
-				newBlockchain := append(Blockchain, newBlock)
-				replaceChain(newBlockchain)
-			}
+		t := time.Now()
+		genesisBlock := Block{}
+		genesisBlock = Block{0, t.String(), 0, calculateHash(genesisBlock), "", difficulty, ""}
+		spew.Dump(genesisBlock)
 
-			bcServer <- Blockchain
-			io.WriteString(conn, "\nEnter a new BPM:")
-		}
+		mutex.Lock()
+		Blockchain = append(Blockchain, genesisBlock)
+		mutex.Unlock()
 	}()
-
-	// simulate receiving broadcast
-	go func() {
-		for {
-			time.Sleep(30 * time.Second)
-			output, err := json.Marshal(Blockchain)
-			if err != nil {
-				log.Fatal(err)
-			}
-			io.WriteString(conn, string(output))
-		}
-	}()
-
-	for _ = range bcServer {
-		spew.Dump(Blockchain)
-	}
+	log.Fatal(run())
 }
