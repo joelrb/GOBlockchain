@@ -97,11 +97,10 @@ func main() {
 		log.Fatal(err)
 	}
 
-	bcServer = make(chan []Block)
-
 	// create genesis block
 	t := time.Now()
-	genesisBlock := Block{0, t.String(), 0, "", ""}
+	genesisBlock := Block{}
+	genesisBlock = Block{0, t.String(), 0, calculateBlockHash(genesisBlock), "", ""}
 	spew.Dump(genesisBlock)
 	Blockchain = append(Blockchain, genesisBlock)
 
@@ -111,6 +110,20 @@ func main() {
 		log.Fatal(err)
 	}
 	defer server.Close()
+
+	go func() {
+		for candidate := range candidateBlocks {
+			mutex.Lock()
+			tempBlocks = append(tempBlocks, candidate)
+			mutex.Unlock()
+		}
+	}()
+
+	go func() {
+		for {
+			pickWinner()
+		}
+	}()
 
 	for {
 		conn, err := server.Accept()
@@ -201,5 +214,19 @@ func handleConn(conn net.Conn) {
 		}
 
 		io.WriteString(conn, string(output)+"\n")
+	}
+}
+
+// pickwinner creates lottery pool of validators
+func pickWinner() {
+	time.Sleep(30 * time.Second)
+	mutex.Lock()
+	temp := tempBlocks
+	mutex.Unlock()
+
+	lotteryPol := []string{}
+
+	if len(temp) > 0 {
+		// modifie proof of stake algorithm
 	}
 }
