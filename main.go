@@ -224,9 +224,53 @@ func pickWinner() {
 	temp := tempBlocks
 	mutex.Unlock()
 
-	lotteryPol := []string{}
+	lotteryPool := []string{}
 
 	if len(temp) > 0 {
-		// modifie proof of stake algorithm
+
+		// modified proof of stake algorithm
+	OUTER:
+		for _, block := range temp {
+			// if already in lottery pool, skip
+			for _, node := range lotteryPool {
+				if block.Validator == node {
+					continue OUTER
+				}
+			}
+
+			// lock list of validators to prevent data race
+			mutex.Lock()
+			setValidators := validators
+			mutex.Unlock()
+
+			k, ok := setValidators[block.Validator]
+			if ok {
+				for i := 0; i < k; i++ {
+					lotteryPool = append(lotteryPool, block.Validator)
+				}
+			}
+		}
+
+		// randomly pick winner from lottery pool
+		s := rand.NewSource(time.Now().Unix())
+		r := rand.New(s)
+		lotteryWinner := lotteryPool[r.Intn(len(lotteryPool))]
+
+		// add block of winner to blockchain and let all the other nodes know
+		for _, block := range temp {
+			if block.Validator == lotteryWinner {
+				mutex.Lock()
+				Blockchain = append(Blockchain, block)
+				mutex.Unlock()
+				for _ = range validators {
+					announcements <- "\nwinning validator: " + lotteryWinner + "\n"
+				}
+				break
+			}
+		}
 	}
+
+	mutex.Lock()
+	tempBlocks = []Block{}
+	mutex.Unlock()
 }
