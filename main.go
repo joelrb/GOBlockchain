@@ -46,12 +46,16 @@ type Message struct {
 	BPM int
 }
 
-func calculateHash(block Block) string {
-	record := string(block.Index) + block.Timestamp + string(block.BPM) + block.PrevHash
+func calculateHash(s string) string {
 	h := sha256.New()
 	h.Write([]byte(record))
 	hashed := h.Sum(nil)
 	return hex.EncodeToString(hashed)
+}
+
+func calculateBlockHash(block Block) string {
+	record := string(block.Index) + block.Timestamp + string(block.BPM) + block.PrevHash
+	return calculateHash(record)
 }
 
 func generateBlock(oldBlock Block, BPM int) (Block, error) {
