@@ -91,14 +91,6 @@ func isBlockValid(newBlock, oldBlock Block) bool {
 	return true
 }
 
-func replaceChain(newBlocks []Block) {
-	if len(newBlocks) > len(Blockchain) {
-		Blockchain = newBlocks
-	}
-}
-
-var bcServer chan []Block
-
 func main() {
 	err := godotenv.Load()
 	if err != nil {
@@ -132,46 +124,82 @@ func main() {
 func handleConn(conn net.Conn) {
 	defer conn.Close()
 
-	io.WriteString(conn, "Enter a new BPM:")
-
-	scanner := bufio.NewScanner(conn)
-
-	// take in BPM from stdin and add it to blockchain after conducting necessary validation
-	go func() {
-		for scanner.Scan() {
-			bpm, err := strconv.Atoi(scanner.Text())
-			if err != nil {
-				log.Printf("%v not a number: %v", scanner.Text(), err)
-				continue
-			}
-			newBlock, err := generateBlock(Blockchain[len(Blockchain)-1], bpm)
-			if err != nil {
-				log.Println(err)
-				continue
-			}
-			if isBlockValid(newBlock, Blockchain[len(Blockchain)-1]) {
-				newBlockchain := append(Blockchain, newBlock)
-				replaceChain(newBlockchain)
-			}
-
-			bcServer <- Blockchain
-			io.WriteString(conn, "\nEnter a new BPM:")
-		}
-	}()
-
-	// simulate receiving broadcast
 	go func() {
 		for {
-			time.Sleep(30 * time.Second)
-			output, err := json.Marshal(Blockchain)
-			if err != nil {
-				log.Fatal(err)
-			}
-			io.WriteString(conn, string(output))
+			msg := <-announcements
+			io.WriteString(conn, msg)
 		}
 	}()
 
-	for _ = range bcServer {
-		spew.Dump(Blockchain)
+	// validator address
+	var address string
+
+	// allow user to enter number of tokens to stake
+	// the greater the number of tokens, the greater is the chance to forge a block
+	io.WriteString(conn, "Enter token balance:")
+	scanBalance := bufio.NewScanner(conn)
+
+	for scanBalance.Scan() {
+		balance, err := strconv.Atoi(scanBalance.Text())
+		if err != nil {
+			log.Printf("%v not a number: %v", scanBalance.Text(), err)
+			return
+		}
+
+		t := time.Now()
+		address = calculateHash(t.String())
+		validators[address] = balance
+		fmt.Println(validators)
+		break
+	}
+
+	io.WriteString(conn, "\nEnter new BPM:")
+
+	scanBPM := bufio.NewScanner(conn)
+
+	go func() {
+		for {
+			// take the BPM from stdin and add it to blockchain after validation
+			for scanBPM.Scan() {
+				bpm, err := strconv.Atoi(scanBPM.Text())
+				// if malicious party tries to mutate the chain with bad input delete them
+				if err != nil {
+					log.Printf("%v not a number: %v", scanBPM.Text(), err)
+					delete(validators, address)
+					conn.Close()
+				}
+
+				mutex.Lock()
+				oldLastIndex := Blockchain[len(Blockchain)-1]
+				mutex.Unlock()
+
+				//create newBlock for consideration to be forged
+				newBlock, err := generateBlock(oldLastIndex, bpm, address)
+
+				if err != nil {
+					log.Println(err)
+					continue
+				}
+
+				if isBlockValid(newBlock, oldLastIndex) {
+					candidateBlocks <- newBlock
+				}
+
+				io.WriteString(conn, "\nEnter a new BPM:")
+			}
+		}
+	}()
+
+	//simulate for receiving broadcast
+	for {
+		time.Sleep(time.Minute)
+		mutex.Lock()
+		output, err := json.Marshal(Blockchain)
+		mutex.Unlock()
+		if err != nil {
+			log.Fatal(err)
+		}
+
+		io.WriteString(conn, string(output)+"\n")
 	}
 }
