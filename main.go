@@ -48,7 +48,7 @@ type Message struct {
 
 func calculateHash(s string) string {
 	h := sha256.New()
-	h.Write([]byte(record))
+	h.Write([]byte(s))
 	hashed := h.Sum(nil)
 	return hex.EncodeToString(hashed)
 }
@@ -58,7 +58,7 @@ func calculateBlockHash(block Block) string {
 	return calculateHash(record)
 }
 
-func generateBlock(oldBlock Block, BPM int) (Block, error) {
+func generateBlock(oldBlock Block, BPM int, address string) (Block, error) {
 
 	var newBlock Block
 
@@ -68,7 +68,8 @@ func generateBlock(oldBlock Block, BPM int) (Block, error) {
 	newBlock.Timestamp = t.String()
 	newBlock.BPM = BPM
 	newBlock.PrevHash = oldBlock.Hash
-	newBlock.Hash = calculateHash(newBlock)
+	newBlock.Hash = calculateBlockHash(newBlock)
+	newBlock.Validator = address
 
 	return newBlock, nil
 }
