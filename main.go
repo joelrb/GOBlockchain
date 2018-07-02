@@ -25,13 +25,26 @@ type Block struct {
 	BPM       int
 	Hash      string
 	PrevHash  string
+	Validator string
 }
+
+// Validated blocks
+var Blockchain []Block
+var tempBlocks []Block
+
+// Validate incoming blocks
+var candidateBlocks = make(chan Block)
+
+// Broadcast winning validator
+var announcements = make(chan string)
+
+var mutex = &sync.Mutex{}
+
+var validators = make(map[string]int)
 
 type Message struct {
 	BPM int
 }
-
-var Blockchain []Block
 
 func calculateHash(block Block) string {
 	record := string(block.Index) + block.Timestamp + string(block.BPM) + block.PrevHash
