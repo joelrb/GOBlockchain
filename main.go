@@ -74,6 +74,7 @@ func generateBlock(oldBlock Block, BPM int, address string) (Block, error) {
 	return newBlock, nil
 }
 
+// Make sure block is valid by checking index and comparing hash
 func isBlockValid(newBlock, oldBlock Block) bool {
 	if oldBlock.Index+1 != newBlock.Index {
 		return false
@@ -83,7 +84,7 @@ func isBlockValid(newBlock, oldBlock Block) bool {
 		return false
 	}
 
-	if calculateHash(newBlock) != newBlock.Hash {
+	if calculateBlockHash(newBlock) != newBlock.Hash {
 		return false
 	}
 
